@@ -2,10 +2,8 @@ name: Daily AI & Finance Newsletter
 
 on:
   schedule:
-    # 每天 08:30 UTC 运行 (北京时间 16:30)
     - cron: '30 8 * * *'
   workflow_dispatch:
-    # 手动触发
 
 jobs:
   build:
@@ -21,8 +19,7 @@ jobs:
           python-version: '3.11'
       
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
       
       - name: Create environment file
         run: |
@@ -41,11 +38,3 @@ jobs:
           name: daily-report
           path: daily_report_*.html
           retention-days: 30
-
-      - name: Commit report to repository
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add daily_report_*.html
-          git commit -m "Update daily report $(date +%Y-%m-%d)" || echo "No changes to commit"
-          git push

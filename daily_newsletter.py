@@ -16,9 +16,17 @@ from bs4 import BeautifulSoup
 import random
 import re
 
+# ============== SMTP 配置（自动识别）==============
+SMTP_CONFIGS = {
+    "qq.com": {"server": "smtp.qq.com", "port": 465, "ssl": True},
+    "foxmail.com": {"server": "smtp.qq.com", "port": 465, "ssl": True},
+}
+
+def get_smtp_config(email_domain):
+    """根据邮箱域名自动识别 SMTP 配置"""
+    return SMTP_CONFIGS.get(email_domain, {"server": f"smtp.{email_domain}", "port": 465, "ssl": True})
+
 # ============== 配置 ==============
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))
 SMTP_USER = os.getenv('SMTP_USER', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 TO_EMAILS = os.getenv('TO_EMAILS', '').split(',')
@@ -26,6 +34,11 @@ PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', '')
 
 # Debug output
 print(f"=== DEBUG INFO ===")
+print(f"SMTP_USER: {SMTP_USER}")
+print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
+print(f"TO_EMAILS: {TO_EMAILS}")
+print(f"PUSHPLUS_TOKEN set: {bool(PUSHPLUS_TOKEN)}")
+print(f"==================")
 print(f"SMTP_SERVER: {SMTP_SERVER}")
 print(f"SMTP_PORT: {SMTP_PORT}")
 print(f"SMTP_USER: {SMTP_USER}")
@@ -253,26 +266,30 @@ def send_via_smtp(html_content):
         msg = MIMEMultipart('alternative')
         msg['Subject'] = '🤖 AI & 📈 财经每日日报 - ' + datetime.now().strftime('%Y年%m月%d日')
         msg['From'] = SMTP_USER
-        msg['To'] = ', '.join(TO_EMAILS)
+        msg['To'] = ', '.join(TO_EMAILS) if TO_EMAILS and TO_EMAILS[0] else SMTP_USER
         
         msg.attach(MIMEText(html_content, 'html', 'utf-8'))
         
         print('正在连接 SMTP 服务器...')
         
-        smtp_host = "113.108.78.43"
-        smtp_domain = "smtp.qq.com"
+        # 自动识别 SMTP 配置
+        email_domain = SMTP_USER.split('@')[-1].lower() if SMTP_USER else 'qq.com'
+        smtp_config = get_smtp_config(email_domain)
+        smtp_server = smtp_config['server']
+        smtp_port = smtp_config['port']
+        use_ssl = smtp_config['ssl']
         
-        if SMTP_PORT == 465:
-            server = smtplib.SMTP_SSL(smtp_host, 465, timeout=30)
-            server.ehlo(smtp_domain)
+        print(f'自动识别邮箱类型: {email_domain} -> {smtp_server}:{smtp_port}')
+        
+        if use_ssl:
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30)
         else:
-            server = smtplib.SMTP(smtp_host, SMTP_PORT, timeout=30)
-            server.ehlo(smtp_domain)
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
             server.starttls()
         
         server.login(SMTP_USER, SMTP_PASSWORD)
         print('正在发送邮件...')
-        server.sendmail(SMTP_USER, TO_EMAILS, msg.as_string())
+        server.sendmail(SMTP_USER, [TO_EMAILS[0]] if TO_EMAILS and TO_EMAILS[0] else SMTP_USER, msg.as_string())
         server.quit()
         print('✅ 邮件发送成功!')
         return True

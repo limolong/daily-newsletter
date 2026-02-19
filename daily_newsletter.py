@@ -222,11 +222,11 @@ def send_email(html_content):
         # 根据端口选择连接方式
         if SMTP_PORT == 465:
             # SSL 连接 (端口 465)
-            server = smtplib.SMTP_SSL(SMTP_SERVER, 465)
+            server = smtplib.SMTP_SSL(SMTP_SERVER, 465, timeout=30)
             print('使用 SSL 连接 (端口 465)')
         else:
             # STARTTLS 连接 (端口 587)
-            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30)
             server.starttls()
             print('使用 STARTTLS 连接 (端口 587)')
         

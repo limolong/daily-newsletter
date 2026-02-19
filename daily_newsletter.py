@@ -220,13 +220,19 @@ def send_email(html_content):
         print('正在连接 SMTP 服务器...')
         
         # 根据端口选择连接方式
+        # 使用 IP 地址避免 DNS 解析问题
+        smtp_host = "113.108.78.43"  # QQ 邮箱 SMTP 服务器 IP
+        smtp_domain = "smtp.qq.com"  # 用于 EHLO
+        
         if SMTP_PORT == 465:
             # SSL 连接 (端口 465)
-            server = smtplib.SMTP_SSL(SMTP_SERVER, 465, timeout=30)
+            server = smtplib.SMTP_SSL(smtp_host, 465, timeout=30)
+            server.ehlo(smtp_domain)
             print('使用 SSL 连接 (端口 465)')
         else:
             # STARTTLS 连接 (端口 587)
-            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30)
+            server = smtplib.SMTP(smtp_host, SMTP_PORT, timeout=30)
+            server.ehlo(smtp_domain)
             server.starttls()
             print('使用 STARTTLS 连接 (端口 587)')
         

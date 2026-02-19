@@ -23,17 +23,15 @@ jobs:
       
       - name: Run newsletter script
         env:
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           TO_EMAILS: ${{ secrets.TO_EMAILS }}
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-        run: python daily_newsletter.py
+        run: python simple_newsletter.py
         
       - name: Upload report as artifact
         uses: actions/upload-artifact@v4
         with:
           name: daily-report
-          path: daily_report_*.html
+          path: daily_report*.html
           retention-days: 30

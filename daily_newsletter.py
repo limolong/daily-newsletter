@@ -16,8 +16,8 @@ from bs4 import BeautifulSoup
 import random
 
 # ============== 配置 ==============
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')  # 默认使用 smtp.qq.com
+SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))  # 默认使用 465 (SSL)
 SMTP_USER = os.getenv('SMTP_USER', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 TO_EMAILS = os.getenv('TO_EMAILS', '').split(',')

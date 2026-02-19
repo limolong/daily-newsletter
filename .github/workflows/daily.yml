@@ -21,23 +21,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
-      - name: Debug environment
-        run: |
-          echo "SMTP_SERVER is set: ${{ secrets.SMTP_SERVER != '' }}"
-          echo "SMTP_PORT is set: ${{ secrets.SMTP_PORT != '' }}"
-          echo "SMTP_USER is set: ${{ secrets.SMTP_USER != '' }}"
-          echo "SMTP_PASSWORD is set: ${{ secrets.SMTP_PASSWORD != '' }}"
-          echo "TO_EMAILS is set: ${{ secrets.TO_EMAILS != '' }}"
-      
-      - name: Create environment file
-        run: |
-          echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}" > .env
-          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
-          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
-          echo "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" >> .env
-          echo "TO_EMAILS=${{ secrets.TO_EMAILS }}" >> .env
-      
       - name: Run newsletter script
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          TO_EMAILS: ${{ secrets.TO_EMAILS }}
         run: python daily_newsletter.py
         
       - name: Upload report as artifact

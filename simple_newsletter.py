@@ -13,15 +13,19 @@ from datetime import datetime
 import requests
 
 # ============== 配置 ==============
-SMTP_USER = os.getenv('SMTP_USER', '')
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
-TO_EMAILS = os.getenv('TO_EMAILS', '').split(',')
+EMAIL_SENDER = os.getenv('EMAIL_SENDER', '')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+EMAIL_RECEIVERS = os.getenv('EMAIL_RECEIVERS', '').split(',') if os.getenv('EMAIL_RECEIVERS') else []
 PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', '')
 
+# 如果没有设置收件人，默认发给发件人
+if not EMAIL_RECEIVERS:
+    EMAIL_RECEIVERS = [EMAIL_SENDER]
+
 print(f"=== DEBUG ===")
-print(f"SMTP_USER: {SMTP_USER}")
-print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
-print(f"TO_EMAILS: {TO_EMAILS}")
+print(f"EMAIL_SENDER: {EMAIL_SENDER}")
+print(f"EMAIL_PASSWORD set: {bool(EMAIL_PASSWORD)}")
+print(f"EMAIL_RECEIVERS: {EMAIL_RECEIVERS}")
 print(f"PUSHPLUS_TOKEN set: {bool(PUSHPLUS_TOKEN)}")
 print(f"============")
 
@@ -106,24 +110,23 @@ def send_pushplus(html):
         return False
 
 def send_smtp(html):
-    """SMTP发送 - 尝试多种配置"""
-    if not SMTP_USER or not SMTP_PASSWORD:
+    """SMTP发送 - 使用与daily_stock_analysis相同的方式"""
+    if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False
     
     # 尝试不同的SMTP配置
     configs = [
         ('smtp.qq.com', 465, True),   # QQ邮箱 SSL
         ('smtp.qq.com', 587, False),  # QQ邮箱 TLS
-        ('smtp.foxmail.com', 465, True),  # Foxmail SSL
     ]
     
     for smtp_server, port, use_ssl in configs:
         try:
             print(f'尝试 {smtp_server}:{port}...')
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = '🤖 AI & 📈 财经日报 ' + datetime.now().strftime('%Y年%m月%d日')
-            msg['From'] = SMTP_USER
-            msg['To'] = TO_EMAILS[0] if TO_EMAILS and TO_EMAILS[0] else SMTP_USER
+            msg['Subject'] = Header('🤖 AI & 📈 财经日报 ' + datetime.now().strftime('%Y年%m月%d日'), 'utf-8')
+            msg['From'] = EMAIL_SENDER
+            msg['To'] = ', '.join(EMAIL_RECEIVERS) if EMAIL_RECEIVERS else EMAIL_SENDER
             msg.attach(MIMEText(html, 'html', 'utf-8'))
             
             if use_ssl:
@@ -132,8 +135,8 @@ def send_smtp(html):
                 server = smtplib.SMTP(smtp_server, port, timeout=30)
                 server.starttls()
             
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, [TO_EMAILS[0]] if TO_EMAILS and TO_EMAILS[0] else SMTP_USER, msg.as_string())
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
             server.quit()
             print(f'✅ SMTP发送成功! ({smtp_server}:{port})')
             return True
@@ -155,13 +158,13 @@ def main():
     # 发送
     success = False
     
-    # 1. 先尝试PushPlus
-    if PUSHPLUS_TOKEN:
-        success = send_pushplus(html)
-    
-    # 2. 再尝试SMTP
-    if not success and SMTP_USER and SMTP_PASSWORD:
+    # 1. 先尝试SMTP
+    if EMAIL_SENDER and EMAIL_PASSWORD:
         success = send_smtp(html)
+    
+    # 2. 再尝试PushPlus
+    if not success and PUSHPLUS_TOKEN:
+        success = send_pushplus(html)
     
     if not success:
         print('❌ 所有发送方式都失败!')

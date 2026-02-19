@@ -39,13 +39,6 @@ print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
 print(f"TO_EMAILS: {TO_EMAILS}")
 print(f"PUSHPLUS_TOKEN set: {bool(PUSHPLUS_TOKEN)}")
 print(f"==================")
-print(f"SMTP_SERVER: {SMTP_SERVER}")
-print(f"SMTP_PORT: {SMTP_PORT}")
-print(f"SMTP_USER: {SMTP_USER}")
-print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
-print(f"TO_EMAILS: {TO_EMAILS}")
-print(f"PUSHPLUS_TOKEN set: {bool(PUSHPLUS_TOKEN)}")
-print(f"==================")
 
 # ============== 详细新闻数据 ==============
 DETAILED_AI_NEWS = [

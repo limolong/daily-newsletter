@@ -62,7 +62,6 @@ DETAILED_FINANCE_NEWS = [
 
 # ============== 获取新闻 ==============
 def fetch_ai_news():
-    """获取AI圈热点新闻"""
     news = []
     try:
         resp = requests.get('https://huggingface.co/api/trending?since=daily&framework=pytorch', timeout=10)
@@ -83,7 +82,6 @@ def fetch_ai_news():
     return news[:12]
 
 def fetch_finance_news():
-    """获取财经圈热点新闻"""
     news = []
     try:
         resp = requests.get('https://36kr.com/information/VC/', timeout=10)
@@ -106,7 +104,6 @@ def fetch_finance_news():
 
 # ============== 生成HTML ==============
 def generate_html(ai_news, finance_news):
-    """生成HTML日报"""
     date = datetime.now().strftime('%Y年%m月%d日')
     weekday = '一二三四五六日'[datetime.now().weekday()]
     
@@ -203,11 +200,10 @@ def generate_html(ai_news, finance_news):
 
 # ============== 发送邮件 ==============
 def send_email(html_content):
-    """发送邮件"""
     print('=== 开始发送邮件 ===')
-    print(f'From: {SMTP_USER}')
-    print(f'To: {TO_EMAILS}')
-    print(f'SMTP: {SMTP_SERVER}:{SMTP_PORT}')
+    print('From: ' + SMTP_USER)
+    print('To: ' + str(TO_EMAILS))
+    print('SMTP: ' + SMTP_SERVER + ':' + str(SMTP_PORT))
     
     if not SMTP_USER or not SMTP_PASSWORD:
         print('错误: 请配置 SMTP_USER 和 SMTP_PASSWORD 环境变量')
@@ -222,10 +218,18 @@ def send_email(html_content):
         msg.attach(MIMEText(html_content, 'html', 'utf-8'))
         
         print('正在连接 SMTP 服务器...')
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.set_debuglevel(1)  # 开启调试
-        server.starttls()
-        print('正在登录...')
+        
+        # 根据端口选择连接方式
+        if SMTP_PORT == 465:
+            # SSL 连接 (端口 465)
+            server = smtplib.SMTP_SSL(SMTP_SERVER, 465)
+            print('使用 SSL 连接 (端口 465)')
+        else:
+            # STARTTLS 连接 (端口 587)
+            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            server.starttls()
+            print('使用 STARTTLS 连接 (端口 587)')
+        
         server.login(SMTP_USER, SMTP_PASSWORD)
         print('正在发送邮件...')
         server.sendmail(SMTP_USER, TO_EMAILS, msg.as_string())
@@ -258,7 +262,6 @@ def main():
         success = send_email(html)
         if not success:
             print('WARNING: 邮件发送失败!')
-            # Exit with error code so GitHub Actions can catch it
             import sys
             sys.exit(1)
     else:

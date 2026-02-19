@@ -22,6 +22,15 @@ SMTP_USER = os.getenv('SMTP_USER', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 TO_EMAILS = os.getenv('TO_EMAILS', '').split(',')
 
+# Debug output
+print(f"=== DEBUG INFO ===")
+print(f"SMTP_SERVER: {SMTP_SERVER}")
+print(f"SMTP_PORT: {SMTP_PORT}")
+print(f"SMTP_USER: {SMTP_USER}")
+print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
+print(f"TO_EMAILS: {TO_EMAILS}")
+print(f"==================")
+
 # ============== 详细新闻数据 ==============
 DETAILED_AI_NEWS = [
     {'title': 'OpenAI GPT-5 预计年内发布', 'url': 'https://openai.com', 'desc': 'OpenAI计划在2026年推出GPT-5模型，据悉将具备更强的推理能力和多模态理解能力，参数规模可能达到10万亿级别。'},
@@ -195,27 +204,38 @@ def generate_html(ai_news, finance_news):
 # ============== 发送邮件 ==============
 def send_email(html_content):
     """发送邮件"""
+    print('=== 开始发送邮件 ===')
+    print(f'From: {SMTP_USER}')
+    print(f'To: {TO_EMAILS}')
+    print(f'SMTP: {SMTP_SERVER}:{SMTP_PORT}')
+    
     if not SMTP_USER or not SMTP_PASSWORD:
-        print('请配置 SMTP_USER 和 SMTP_PASSWORD 环境变量')
+        print('错误: 请配置 SMTP_USER 和 SMTP_PASSWORD 环境变量')
         return False
     
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = '🤖 AI & 📈 财经每日日报 - ' + datetime.now().strftime('%Y年%m月%d日')
-    msg['From'] = SMTP_USER
-    msg['To'] = ', '.join(TO_EMAILS)
-    
-    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
-    
     try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = '🤖 AI & 📈 财经每日日报 - ' + datetime.now().strftime('%Y年%m月%d日')
+        msg['From'] = SMTP_USER
+        msg['To'] = ', '.join(TO_EMAILS)
+        
+        msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+        
+        print('正在连接 SMTP 服务器...')
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.set_debuglevel(1)  # 开启调试
         server.starttls()
+        print('正在登录...')
         server.login(SMTP_USER, SMTP_PASSWORD)
+        print('正在发送邮件...')
         server.sendmail(SMTP_USER, TO_EMAILS, msg.as_string())
         server.quit()
-        print('邮件发送成功!')
+        print('✅ 邮件发送成功!')
         return True
     except Exception as e:
-        print('邮件发送失败: ' + str(e))
+        print('❌ 邮件发送失败: ' + str(e))
+        import traceback
+        traceback.print_exc()
         return False
 
 # ============== 主程序 ==============
@@ -235,9 +255,16 @@ def main():
     print('日报已保存到: ' + output_file)
     
     if SMTP_USER and SMTP_PASSWORD:
-        send_email(html)
+        success = send_email(html)
+        if not success:
+            print('WARNING: 邮件发送失败!')
+            # Exit with error code so GitHub Actions can catch it
+            import sys
+            sys.exit(1)
     else:
         print('未配置邮件发送，请设置环境变量')
+        import sys
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()

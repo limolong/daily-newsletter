@@ -14,13 +14,15 @@ import json
 import requests
 from bs4 import BeautifulSoup
 import random
+import re
 
 # ============== 配置 ==============
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')  # 默认使用 smtp.qq.com
-SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))  # 默认使用 465 (SSL)
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))
 SMTP_USER = os.getenv('SMTP_USER', '')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 TO_EMAILS = os.getenv('TO_EMAILS', '').split(',')
+PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', '')
 
 # Debug output
 print(f"=== DEBUG INFO ===")
@@ -29,6 +31,7 @@ print(f"SMTP_PORT: {SMTP_PORT}")
 print(f"SMTP_USER: {SMTP_USER}")
 print(f"SMTP_PASSWORD set: {bool(SMTP_PASSWORD)}")
 print(f"TO_EMAILS: {TO_EMAILS}")
+print(f"PUSHPLUS_TOKEN set: {bool(PUSHPLUS_TOKEN)}")
 print(f"==================")
 
 # ============== 详细新闻数据 ==============
@@ -198,9 +201,46 @@ def generate_html(ai_news, finance_news):
 </html>'''
     return html
 
-# ============== 发送邮件 ==============
-def send_email(html_content):
-    print('=== 开始发送邮件 ===')
+# ============== PushPlus 发送 ==============
+def send_via_pushplus(html_content):
+    """通过 PushPlus 发送"""
+    print('=== 使用 PushPlus 发送 ===')
+    
+    if not PUSHPLUS_TOKEN:
+        print('错误: PUSHPLUS_TOKEN 未配置')
+        return False
+    
+    try:
+        # 提取纯文本作为摘要
+        text_content = re.sub(r'<[^>]+>', '', html_content)
+        text_content = text_content[:500] + '...' if len(text_content) > 500 else text_content
+        
+        url = 'http://www.pushplus.plus/send'
+        data = {
+            'token': PUSHPLUS_TOKEN,
+            'title': '🤖 AI & 📈 财经日报 ' + datetime.now().strftime('%Y年%m月%d日'),
+            'content': text_content,
+            'html': html_content,
+            'template': 'html'
+        }
+        
+        response = requests.post(url, data=data, timeout=30)
+        result = response.json()
+        
+        if result.get('code') == 200:
+            print('✅ PushPlus 发送成功!')
+            return True
+        else:
+            print('❌ PushPlus 发送失败: ' + str(result))
+            return False
+    except Exception as e:
+        print('❌ PushPlus 发送失败: ' + str(e))
+        return False
+
+# ============== SMTP 发送 ==============
+def send_via_smtp(html_content):
+    """通过 SMTP 发送邮件"""
+    print('=== 使用 SMTP 发送邮件 ===')
     print('From: ' + SMTP_USER)
     print('To: ' + str(TO_EMAILS))
     print('SMTP: ' + SMTP_SERVER + ':' + str(SMTP_PORT))
@@ -219,22 +259,16 @@ def send_email(html_content):
         
         print('正在连接 SMTP 服务器...')
         
-        # 根据端口选择连接方式
-        # 使用 IP 地址避免 DNS 解析问题
-        smtp_host = "113.108.78.43"  # QQ 邮箱 SMTP 服务器 IP
-        smtp_domain = "smtp.qq.com"  # 用于 EHLO
+        smtp_host = "113.108.78.43"
+        smtp_domain = "smtp.qq.com"
         
         if SMTP_PORT == 465:
-            # SSL 连接 (端口 465)
             server = smtplib.SMTP_SSL(smtp_host, 465, timeout=30)
             server.ehlo(smtp_domain)
-            print('使用 SSL 连接 (端口 465)')
         else:
-            # STARTTLS 连接 (端口 587)
             server = smtplib.SMTP(smtp_host, SMTP_PORT, timeout=30)
             server.ehlo(smtp_domain)
             server.starttls()
-            print('使用 STARTTLS 连接 (端口 587)')
         
         server.login(SMTP_USER, SMTP_PASSWORD)
         print('正在发送邮件...')
@@ -243,9 +277,7 @@ def send_email(html_content):
         print('✅ 邮件发送成功!')
         return True
     except Exception as e:
-        print('❌ 邮件发送失败: ' + str(e))
-        import traceback
-        traceback.print_exc()
+        print('❌ SMTP 邮件发送失败: ' + str(e))
         return False
 
 # ============== 主程序 ==============
@@ -264,14 +296,17 @@ def main():
         f.write(html)
     print('日报已保存到: ' + output_file)
     
-    if SMTP_USER and SMTP_PASSWORD:
-        success = send_email(html)
-        if not success:
-            print('WARNING: 邮件发送失败!')
-            import sys
-            sys.exit(1)
-    else:
-        print('未配置邮件发送，请设置环境变量')
+    # 发送：优先 PushPlus，其次 SMTP
+    success = False
+    
+    if PUSHPLUS_TOKEN:
+        success = send_via_pushplus(html)
+    
+    if not success and SMTP_USER and SMTP_PASSWORD:
+        success = send_via_smtp(html)
+    
+    if not success:
+        print('WARNING: 所有发送方式都失败!')
         import sys
         sys.exit(1)
 

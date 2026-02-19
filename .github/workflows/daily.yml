@@ -21,6 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
+      - name: Debug environment
+        run: |
+          echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}"
+          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}"  
+          echo "SMTP_USER=${{ secrets.SMTP_USER }}"
+          echo "SMTP_PASSWORD length = ${{ secrets.SMTP_PASSWORD | length }}"
+          echo "TO_EMAILS=${{ secrets.TO_EMAILS }}"
+      
       - name: Create environment file
         run: |
           echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}" > .env
@@ -31,7 +39,7 @@ jobs:
       
       - name: Run newsletter script
         run: python daily_newsletter.py
-      
+        
       - name: Upload report as artifact
         uses: actions/upload-artifact@v4
         with:

@@ -23,11 +23,11 @@ jobs:
       
       - name: Debug environment
         run: |
-          echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}"
-          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}"  
-          echo "SMTP_USER=${{ secrets.SMTP_USER }}"
-          echo "SMTP_PASSWORD length = ${{ secrets.SMTP_PASSWORD | length }}"
-          echo "TO_EMAILS=${{ secrets.TO_EMAILS }}"
+          echo "SMTP_SERVER is set: ${{ secrets.SMTP_SERVER != '' }}"
+          echo "SMTP_PORT is set: ${{ secrets.SMTP_PORT != '' }}"
+          echo "SMTP_USER is set: ${{ secrets.SMTP_USER != '' }}"
+          echo "SMTP_PASSWORD is set: ${{ secrets.SMTP_PASSWORD != '' }}"
+          echo "TO_EMAILS is set: ${{ secrets.TO_EMAILS != '' }}"
       
       - name: Create environment file
         run: |

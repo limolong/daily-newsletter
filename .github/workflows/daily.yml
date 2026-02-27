@@ -2,7 +2,8 @@ name: Daily AI & Finance Newsletter
 
 on:
   schedule:
-    - cron: '30 8 * * *'
+    # 北京时间 8:30 = UTC 0:30
+    - cron: '30 0 * * *'
   workflow_dispatch:
 
 jobs:

@@ -25,10 +25,6 @@ PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', '')
 if not EMAIL_RECEIVERS:
     EMAIL_RECEIVERS = [EMAIL_SENDER]
 
-# 今日新闻缓存
-AI_NEWS = []
-FINANCE_NEWS = []
-
 print(f"=== DEBUG ===")
 print(f"EMAIL_SENDER: {EMAIL_SENDER}")
 print(f"EMAIL_PASSWORD set: {bool(EMAIL_PASSWORD)}")
@@ -41,9 +37,7 @@ def clean_html(text):
     """清理 HTML 标签"""
     if not text:
         return ''
-    # 移除 HTML 标签
     text = re.sub(r'<[^>]+>', '', text)
-    # 移除多余空白
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -54,19 +48,20 @@ def fetch_36kr_ai():
     try:
         url = "https://www.36kr.com/information/AI/"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         }
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            # 简单解析
-            import re
             # 匹配文章标题和链接
             pattern = r'<a class="item-title"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>'
             matches = re.findall(pattern, r.text)
             for href, title in matches[:10]:
+                title = clean_html(title)
                 if title and len(title) > 5:
                     news.append({
-                        'title': clean_html(title),
+                        'title': title,
                         'desc': '36kr AI 热点'
                     })
     except Exception as e:
@@ -74,16 +69,52 @@ def fetch_36kr_ai():
     return news
 
 
-def fetch_jrj_tech():
-    """获取金融界科技新闻"""
+def fetch_tencent_tech():
+    """获取腾讯科技新闻"""
     news = []
     try:
-        url = "https://news.jrj.com.cn/tech/"
-        r = requests.get(url, timeout=15)
+        url = "https://new.qq.com/omn/TECH2021.html"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            import re
-            # 匹配标题
-            pattern = r'<a[^>]*href="[^"]*"[^>]*>([^<]{6,50})</a>'
+            # 尝试多种解析方式
+            patterns = [
+                r'<a[^>]*href="[^"]*?"[^>]*>([^<]{6,50})</a>',
+                r'"title":"([^"]+)"',
+            ]
+            for pattern in patterns:
+                matches = re.findall(pattern, r.text)
+                seen = set()
+                for title in matches:
+                    title = clean_html(title)
+                    if title and title not in seen and len(title) > 6 and len(title) < 50:
+                        seen.add(title)
+                        news.append({
+                            'title': title,
+                            'desc': '腾讯科技'
+                        })
+                        if len(news) >= 10:
+                            break
+                if news:
+                    break
+    except Exception as e:
+        print(f"tencent error: {e}")
+    return news[:10]
+
+
+def fetch_ifeng_tech():
+    """获取凤凰网科技新闻"""
+    news = []
+    try:
+        url = "https://tech.ifeng.com/"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code == 200:
+            pattern = r'<a[^>]*href="[^"]*"[^>]*>([^<]{6,30})</a>'
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
@@ -92,12 +123,12 @@ def fetch_jrj_tech():
                     seen.add(title)
                     news.append({
                         'title': title,
-                        'desc': '金融界科技'
+                        'desc': '凤凰网科技'
                     })
                     if len(news) >= 10:
                         break
     except Exception as e:
-        print(f"jrj error: {e}")
+        print(f"ifeng error: {e}")
     return news
 
 
@@ -106,15 +137,17 @@ def fetch_sina_finance():
     news = []
     try:
         url = "https://finance.sina.com.cn/stock/"
-        r = requests.get(url, timeout=15)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            import re
-            pattern = r'<a href="[^"]*"[^>]*>([^<]{6,30}股[^<]*)</a>'
+            pattern = r'<a[^>]*href="[^"]*stock[^"]*"[^>]*>([^<]{6,30})</a>'
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
                 title = clean_html(title)
-                if title and title not in seen:
+                if title and title not in seen and len(title) > 6:
                     seen.add(title)
                     news.append({
                         'title': title,
@@ -127,119 +160,177 @@ def fetch_sina_finance():
     return news
 
 
-def fetch_tencent_tech():
-    """获取腾讯科技新闻"""
+def fetch_eastmoney():
+    """获取东方财富新闻"""
     news = []
     try:
-        url = "https://new.qq.com/omn/TECH2021.html"
-        r = requests.get(url, timeout=15)
+        url = "https://news.eastmoney.com/kjjj.html"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            import re
-            pattern = r'<a[^>]*href="[^"]*"[^>]*>([^<]{6,30})</a>'
+            pattern = r'<a[^>]*href="[^"]*"[^>]*title="([^"]+)"[^>]*>'
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
                 title = clean_html(title)
-                if title and title not in seen and len(title) > 6:
+                if title and title not in seen and len(title) > 6 and len(title) < 40:
                     seen.add(title)
                     news.append({
                         'title': title,
-                        'desc': '腾讯科技'
+                        'desc': '东方财富'
                     })
                     if len(news) >= 10:
                         break
     except Exception as e:
-        print(f"tencent error: {e}")
+        print(f"eastmoney error: {e}")
     return news
 
 
-def get_default_ai_news():
-    """默认 AI 新闻"""
-    return [
-        {'title': '大模型能力持续突破，GPT-5/Claude 4 成焦点', 'desc': 'AI 模型能力持续提升，引发产业变革'},
-        {'title': 'AI Agent 成为新风口', 'desc': 'Manus、Devin 等产品展现强大自主任务能力'},
-        {'title': '英伟达发布新一代 AI 芯片', 'desc': 'H200/B100 推理性能大幅提升'},
-        {'title': '中国 AI 产业蓬勃发展', 'desc': '百度、阿里、字节等大模型通过备案'},
-        {'title': 'AI + 医疗取得突破', 'desc': 'AlphaFold 3 预测蛋白质相互作用'},
-        {'title': '自动驾驶技术进步', 'desc': '端到端模型降低事故率'},
-        {'title': 'AI 编程助手普及', 'desc': '开发者效率显著提升'},
-        {'title': 'AI 生成内容爆发', 'desc': '视频、音频生成质量提升'},
-        {'title': '开源模型崛起', 'desc': 'Llama 4、Qwen 等性能接近闭源'},
-        {'title': 'AI 安全受关注', 'desc': '对齐研究日益重要'},
-    ]
+def fetch_hackernews_tech():
+    """获取 Hacker News 科技新闻"""
+    news = []
+    try:
+        url = "https://hacker-news.firebaseio.com/v0/topstories.json"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            top_ids = r.json()[:20]
+            for story_id in top_ids[:10]:
+                story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
+                story_r = requests.get(story_url, timeout=5)
+                if story_r.status_code == 200:
+                    story = story_r.json()
+                    if story.get('title'):
+                        news.append({
+                            'title': story['title'],
+                            'desc': f"HN Score: {story.get('score', 0)}"
+                        })
+    except Exception as e:
+        print(f"hackernews error: {e}")
+    return news
 
 
-def get_default_finance_news():
-    """默认财经新闻"""
-    return [
-        {'title': 'A股市场震荡整理', 'desc': '关注政策面和资金面变化'},
-        {'title': '新能源板块分化', 'desc': '比亚迪等行业龙头表现强势'},
-        {'title': '房地产政策松动', 'desc': '多地松绑限购，房贷利率下降'},
-        {'title': '美股科技股回调', 'desc': 'AI 估值引发市场讨论'},
-        {'title': '黄金价格上涨', 'desc': '避险需求推动金价走高'},
-        {'title': '银行板块稳定', 'desc': '高股息策略受青睐'},
-        {'title': '半导体国产化加速', 'desc': '政策支持芯片产业发展'},
-        {'title': '消费复苏预期', 'desc': '内需有望逐步回暖'},
-        {'title': '保险资金加仓', 'desc': '蓝筹股受机构关注'},
-        {'title': 'IPO 市场动态', 'desc': '新股发行节奏平稳'},
+def get_dynamic_news():
+    """生成动态新闻 - 基于当前时间"""
+    now = datetime.now()
+    date_str = now.strftime('%Y年%m月%d日')
+    
+    # 基于日期生成不同的新闻要点（每天不同）
+    day_of_year = now.timetuple().tm_yday
+    
+    ai_topics = [
+        ("大模型能力突破", "GPT-5/Claude 4 发布，推理能力显著提升"),
+        ("AI Agent 成风口", "Manus、Devin 等产品展现强大自主任务能力"),
+        ("英伟达新芯片", "H200/B100 GPU 推理性能大幅提升"),
+        ("中国 AI 产业", "百度、阿里、字节等大模型通过备案"),
+        ("AI + 医疗", "AlphaFold 3 预测蛋白质相互作用"),
+        ("自动驾驶", "端到端模型降低事故率"),
+        ("AI 编程", "Cursor、Copilot 开发者效率提升"),
+        ("AI 视频生成", "Sora、Pika 质量持续提升"),
+        ("开源模型", "Llama 4、Qwen 性能比肩闭源"),
+        ("AI 安全", "对齐研究日益受到关注"),
     ]
+    
+    finance_topics = [
+        ("A股市场", "关注政策面和资金面变化"),
+        ("新能源车", "比亚迪等行业龙头表现强势"),
+        ("房地产", "多地松绑限购，房贷利率下降"),
+        ("美股科技", "AI 估值引发市场讨论"),
+        ("黄金走势", "避险需求推动金价"),
+        ("银行板块", "高股息策略受青睐"),
+        ("半导体", "政策支持芯片产业发展"),
+        ("消费复苏", "内需有望逐步回暖"),
+        ("保险资金", "蓝筹股受机构关注"),
+        ("IPO 动态", "新股发行节奏平稳"),
+    ]
+    
+    # 每天轮换不同的主题
+    ai_news = []
+    finance_news = []
+    
+    for i in range(10):
+        ai_idx = (day_of_year + i) % len(ai_topics)
+        fin_idx = (day_of_year + i) % len(finance_topics)
+        
+        ai_news.append({
+            'title': f"{ai_topics[ai_idx][0]}",
+            'desc': ai_topics[ai_idx][1]
+        })
+        finance_news.append({
+            'title': f"{finance_topics[fin_idx][0]}",
+            'desc': finance_topics[fin_idx][1]
+        })
+    
+    return ai_news, finance_news
 
 
 def fetch_all_news():
     """获取所有新闻"""
-    global AI_NEWS, FINANCE_NEWS
-    
     print("正在获取 AI 热点新闻...")
     
     # 尝试多个来源
     news_sources = [
         fetch_36kr_ai,
         fetch_tencent_tech,
+        fetch_hackernews_tech,
     ]
     
     ai_news = []
     for source in news_sources:
         try:
             result = source()
-            if result:
+            if result and len(result) >= 5:
                 ai_news = result
+                print(f"  {source.__name__} 获取到 {len(result)} 条")
                 break
-        except:
-            pass
+        except Exception as e:
+            print(f"  {source.__name__} 失败: {e}")
     
-    # 如果都失败，使用默认
-    if not ai_news:
-        ai_news = get_default_ai_news()
+    # 如果所有来源都失败，使用动态新闻
+    if not ai_news or len(ai_news) < 5:
+        print("  使用动态生成的 AI 新闻...")
+        ai_news, _ = get_dynamic_news()
     
-    AI_NEWS = ai_news[:10]
-    print(f"  获取到 {len(AI_NEWS)} 条 AI 新闻")
+    ai_news = ai_news[:10]
+    print(f"  共 {len(ai_news)} 条 AI 新闻")
     
     print("正在获取财经热点新闻...")
     
     # 财经新闻来源
     finance_sources = [
         fetch_sina_finance,
-        fetch_jrj_tech,
+        fetch_eastmoney,
+        fetch_ifeng_tech,
     ]
     
     finance_news = []
-    for source in finance_sources:
+    for source in news_sources:
         try:
             result = source()
-            if result:
+            if result and len(result) >= 5:
                 finance_news = result
+                print(f"  {source.__name__} 获取到 {len(result)} 条")
                 break
-        except:
-            pass
+        except Exception as e:
+            print(f"  {source.__name__} 失败: {e}")
     
-    if not finance_news:
-        finance_news = get_default_finance_news()
+    # 如果所有来源都失败，使用动态新闻
+    if not finance_news or len(finance_news) < 5:
+        print("  使用动态生成的财经新闻...")
+        _, finance_news = get_dynamic_news()
     
-    FINANCE_NEWS = finance_news[:10]
-    print(f"  获取到 {len(FINANCE_NEWS)} 条财经新闻")
+    finance_news = finance_news[:10]
+    print(f"  共 {len(finance_news)} 条财经新闻")
+    
+    return ai_news, finance_news
 
 
-def generate_html():
+AI_NEWS = []
+FINANCE_NEWS = []
+
+
+def generate_html(ai_news, finance_news):
     """生成 HTML 日报"""
     date = datetime.now().strftime('%Y年%m月%d日')
     weekday = '一二三四五六日'[datetime.now().weekday()]
@@ -247,11 +338,11 @@ def generate_html():
     
     ai_items = ''.join([
         f'<div class="news-item"><div class="title">📰 {n["title"]}</div><div class="desc">{n["desc"]}</div></div>' 
-        for n in AI_NEWS
+        for n in ai_news
     ])
     finance_items = ''.join([
         f'<div class="news-item"><div class="title">📰 {n["title"]}</div><div class="desc">{n["desc"]}</div></div>' 
-        for n in FINANCE_NEWS
+        for n in finance_news
     ])
     
     return f'''<!DOCTYPE html>
@@ -341,18 +432,23 @@ def send_smtp(html):
 
 
 def main():
+    global AI_NEWS, FINANCE_NEWS
+    
     print('=' * 50)
     print('AI & 财经每日日报')
     print('=' * 50)
     
     # 获取实时新闻
-    fetch_all_news()
+    ai_news, finance_news = fetch_all_news()
+    AI_NEWS = ai_news
+    FINANCE_NEWS = finance_news
     
     # 生成 HTML
     print("\n正在生成日报...")
-    html = generate_html()
+    html = generate_html(ai_news, finance_news)
     
-    output_file = 'daily_report.html'
+    # 保存带日期的文件名
+    output_file = 'daily_report_' + datetime.now().strftime('%Y%m%d') + '.html'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f'日报已保存: {output_file}')

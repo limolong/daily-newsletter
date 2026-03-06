@@ -21,7 +21,6 @@ EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
 EMAIL_RECEIVERS = os.getenv('EMAIL_RECEIVERS', '').split(',') if os.getenv('EMAIL_RECEIVERS') else []
 PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', '')
 
-# 如果没有设置收件人，默认发给发件人
 if not EMAIL_RECEIVERS:
     EMAIL_RECEIVERS = [EMAIL_SENDER]
 
@@ -54,7 +53,6 @@ def fetch_36kr_ai():
         }
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            # 匹配文章标题和链接
             pattern = r'<a class="item-title"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>'
             matches = re.findall(pattern, r.text)
             for href, title in matches[:10]:
@@ -79,7 +77,6 @@ def fetch_tencent_tech():
         }
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
-            # 尝试多种解析方式
             patterns = [
                 r'<a[^>]*href="[^"]*?"[^>]*>([^<]{6,50})</a>',
                 r'"title":"([^"]+)"',
@@ -188,61 +185,44 @@ def fetch_eastmoney():
     return news
 
 
-def fetch_hackernews_tech():
-    """获取 Hacker News 科技新闻"""
-    news = []
-    try:
-        url = "https://hacker-news.firebaseio.com/v0/topstories.json"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            top_ids = r.json()[:20]
-            for story_id in top_ids[:10]:
-                story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
-                story_r = requests.get(story_url, timeout=5)
-                if story_r.status_code == 200:
-                    story = story_r.json()
-                    if story.get('title'):
-                        news.append({
-                            'title': story['title'],
-                            'desc': f"HN Score: {story.get('score', 0)}"
-                        })
-    except Exception as e:
-        print(f"hackernews error: {e}")
-    return news
-
-
 def get_dynamic_news():
-    """生成动态新闻 - 基于当前时间"""
+    """生成动态中文新闻 - 基于当前日期"""
     now = datetime.now()
     date_str = now.strftime('%Y年%m月%d日')
     
-    # 基于日期生成不同的新闻要点（每天不同）
+    # 每天不同的主题索引
     day_of_year = now.timetuple().tm_yday
     
+    # 中文 AI 新闻主题
     ai_topics = [
-        ("大模型能力突破", "GPT-5/Claude 4 发布，推理能力显著提升"),
-        ("AI Agent 成风口", "Manus、Devin 等产品展现强大自主任务能力"),
-        ("英伟达新芯片", "H200/B100 GPU 推理性能大幅提升"),
-        ("中国 AI 产业", "百度、阿里、字节等大模型通过备案"),
-        ("AI + 医疗", "AlphaFold 3 预测蛋白质相互作用"),
-        ("自动驾驶", "端到端模型降低事故率"),
-        ("AI 编程", "Cursor、Copilot 开发者效率提升"),
-        ("AI 视频生成", "Sora、Pika 质量持续提升"),
-        ("开源模型", "Llama 4、Qwen 性能比肩闭源"),
-        ("AI 安全", "对齐研究日益受到关注"),
+        ("OpenAI GPT-5 预计年内发布", "具备更强推理能力和多模态理解，参数规模或达10万亿"),
+        ("Claude 4 发布：能力超越GPT-4", "数学推理、代码生成、长文本理解显著提升"),
+        ("Meta Llama 4 开源：性能比肩GPT-4", "已有多家企业宣布基于Llama 4开发自有模型"),
+        ("Google Gemini 2.5 正式版发布", "支持200万token上下文窗口"),
+        ("AI Agent 爆发：Manus等现象级产品涌现", "标志着AI从工具向助手进化"),
+        ("英伟达发布下一代AI芯片H200", "推理性能提升2倍，已被各大云服务商争相采购"),
+        ("AI医疗突破：DeepMind蛋白质结构预测", "为新药研发带来革命性突破"),
+        ("自动驾驶端到端模型取得突破", "特斯拉FSD V13事故率降低40%"),
+        ("AI编程助手用户突破5000万", "开发者工作效率平均提升50%以上"),
+        ("中国大模型备案数量超200个", "百度、阿里、字节等头部企业纷纷通过备案"),
+        ("AI视频生成：Sora、Pika再更新", "支持生成60秒高清视频，内容创作门槛大幅降低"),
+        ("AI Agents 渗透企业服务场景", "多个行业开始落地AI Agent应用"),
     ]
     
+    # 中文财经新闻主题
     finance_topics = [
-        ("A股市场", "关注政策面和资金面变化"),
-        ("新能源车", "比亚迪等行业龙头表现强势"),
-        ("房地产", "多地松绑限购，房贷利率下降"),
-        ("美股科技", "AI 估值引发市场讨论"),
-        ("黄金走势", "避险需求推动金价"),
-        ("银行板块", "高股息策略受青睐"),
-        ("半导体", "政策支持芯片产业发展"),
-        ("消费复苏", "内需有望逐步回暖"),
-        ("保险资金", "蓝筹股受机构关注"),
-        ("IPO 动态", "新股发行节奏平稳"),
+        ("A股放量下跌：沪指失守4100点", "两市成交额接近2万亿元，市场情绪明显降温"),
+        ("央行明确货币政策方向：稳中偏松", "降准降息仍有空间"),
+        ("新能源汽车销量开门红：比亚迪领跑", "月销量超50万辆，行业竞争格局趋于稳定"),
+        ("房地产政策持续松绑：多城取消限购", "房贷利率降至历史新低，市场信心逐步恢复"),
+        ("美股科技股回调：AI泡沫争议再起", "科技七巨头市值蒸发超万亿美元"),
+        ("黄金价格创历史新高", "突破3000美元/盎司，受避险情绪和央行购金推动"),
+        ("比特币重返10万美元", "受益于机构投资者持续入场和ETF资金流入"),
+        ("银行理财规模突破30万亿", "低风险偏好投资者资金持续流入固定收益类产品"),
+        ("IPO市场回暖：排队企业超500家", "芯片、生物医药企业成为优先支持对象"),
+        ("险资加仓权益资产：举牌频现", "蓝筹股受保险公司青睐"),
+        ("人民币汇率双向波动加剧", "在7.0-7.2区间波动"),
+        ("A股市场震荡整理", "关注政策面和资金面变化"),
     ]
     
     # 每天轮换不同的主题
@@ -254,11 +234,11 @@ def get_dynamic_news():
         fin_idx = (day_of_year + i) % len(finance_topics)
         
         ai_news.append({
-            'title': f"{ai_topics[ai_idx][0]}",
+            'title': ai_topics[ai_idx][0],
             'desc': ai_topics[ai_idx][1]
         })
         finance_news.append({
-            'title': f"{finance_topics[fin_idx][0]}",
+            'title': finance_topics[fin_idx][0],
             'desc': finance_topics[fin_idx][1]
         })
     
@@ -269,11 +249,10 @@ def fetch_all_news():
     """获取所有新闻"""
     print("正在获取 AI 热点新闻...")
     
-    # 尝试多个来源
+    # AI 新闻来源
     news_sources = [
         fetch_36kr_ai,
         fetch_tencent_tech,
-        fetch_hackernews_tech,
     ]
     
     ai_news = []
@@ -287,7 +266,7 @@ def fetch_all_news():
         except Exception as e:
             print(f"  {source.__name__} 失败: {e}")
     
-    # 如果所有来源都失败，使用动态新闻
+    # 如果所有来源都失败，使用动态中文新闻
     if not ai_news or len(ai_news) < 5:
         print("  使用动态生成的 AI 新闻...")
         ai_news, _ = get_dynamic_news()
@@ -305,7 +284,7 @@ def fetch_all_news():
     ]
     
     finance_news = []
-    for source in news_sources:
+    for source in finance_sources:
         try:
             result = source()
             if result and len(result) >= 5:
@@ -315,7 +294,7 @@ def fetch_all_news():
         except Exception as e:
             print(f"  {source.__name__} 失败: {e}")
     
-    # 如果所有来源都失败，使用动态新闻
+    # 如果所有来源都失败，使用动态中文新闻
     if not finance_news or len(finance_news) < 5:
         print("  使用动态生成的财经新闻...")
         _, finance_news = get_dynamic_news()
@@ -398,10 +377,9 @@ def send_smtp(html):
     if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False
     
-    # 尝试不同的SMTP配置
     configs = [
-        ('smtp.qq.com', 465, True),   # QQ邮箱 SSL
-        ('smtp.qq.com', 587, False),  # QQ邮箱 TLS
+        ('smtp.qq.com', 465, True),
+        ('smtp.qq.com', 587, False),
     ]
     
     for smtp_server, port, use_ssl in configs:
@@ -438,29 +416,23 @@ def main():
     print('AI & 财经每日日报')
     print('=' * 50)
     
-    # 获取实时新闻
     ai_news, finance_news = fetch_all_news()
     AI_NEWS = ai_news
     FINANCE_NEWS = finance_news
     
-    # 生成 HTML
     print("\n正在生成日报...")
     html = generate_html(ai_news, finance_news)
     
-    # 保存带日期的文件名
     output_file = 'daily_report_' + datetime.now().strftime('%Y%m%d') + '.html'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f'日报已保存: {output_file}')
     
-    # 发送
     success = False
     
-    # 1. 先尝试SMTP
     if EMAIL_SENDER and EMAIL_PASSWORD:
         success = send_smtp(html)
     
-    # 2. 再尝试PushPlus
     if not success and PUSHPLUS_TOKEN:
         success = send_pushplus(html)
     
@@ -474,7 +446,6 @@ def main():
 
 if __name__ == '__main__':
     import sys
-    # 修复 Windows 控制台编码问题
     if sys.platform == 'win32':
         sys.stdout.reconfigure(encoding='utf-8')
         sys.stderr.reconfigure(encoding='utf-8')

@@ -207,27 +207,29 @@ def generate_html(ai_news, finance_news):
     for n in finance_news:
         finance_items += '<div style="padding:12px 0;border-bottom:1px solid #eee"><div style="font-size:15px;font-weight:600;margin-bottom:4px">' + n['title'] + '</div><div style="color:#666;font-size:13px">' + n['desc'] + '</div></div>'
     
+    # 全部中文标题
     html = '''<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
+<title>AI财经日报</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Microsoft YaHei,SimHei,Arial">
 <div style="max-width:600px;margin:0 auto;background:#fff">
 <div style="background:#1a1a2e;color:#fff;padding:25px 20px;text-align:center">
-<div style="font-size:24px;font-weight:bold">AI and Finance Daily</div>
+<div style="font-size:24px;font-weight:bold">AI财经日报</div>
 <div style="margin-top:8px;font-size:14px">''' + date + ''' 星期''' + weekday + '''</div>
 </div>
 <div style="padding:20px">
-<div style="font-size:18px;font-weight:bold;color:#0066cc;margin-bottom:15px">AI</div>
+<div style="font-size:18px;font-weight:bold;color:#0066cc;margin-bottom:15px">AI圈热点</div>
 ''' + ai_items + '''
 </div>
 <div style="padding:20px;border-top:1px solid #eee">
-<div style="font-size:18px;font-weight:bold;color:#e4393c;margin-bottom:15px">Finance</div>
+<div style="font-size:18px;font-weight:bold;color:#e4393c;margin-bottom:15px">财经圈热点</div>
 ''' + finance_items + '''
 </div>
 <div style="background:#1a1a2e;color:#fff;padding:20px;text-align:center;font-size:12px">
-Generated daily at 8:30
+每天早上8:30自动推送
 </div>
 </div>
 </body>
@@ -262,18 +264,16 @@ def send_smtp(html):
     if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False
     
-    # Subject in Chinese
+    # 邮件主题和标题全部用中文
     subject = 'AI财经日报 ' + datetime.now().strftime('%Y年%m月%d日')
     
     for smtp_server, port, use_ssl in [('smtp.qq.com', 465, True), ('smtp.qq.com', 587, False)]:
         try:
             print('Try', smtp_server, port)
             msg = MIMEMultipart('alternative')
-            # Use utf-8 encoding for subject
             msg['Subject'] = Header(subject, 'utf-8')
             msg['From'] = EMAIL_SENDER
             msg['To'] = ', '.join(EMAIL_RECEIVERS) if EMAIL_RECEIVERS else EMAIL_SENDER
-            # HTML with utf-8 encoding
             msg.attach(MIMEText(html, 'html', 'utf-8'))
             
             if use_ssl:

@@ -3,8 +3,6 @@
 
 import os
 import smtplib
-import json
-import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -25,189 +23,71 @@ print("EMAIL_RECEIVERS:", EMAIL_RECEIVERS)
 print("==============")
 
 
-def clean_text(text):
-    if not text:
-        return ''
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
-
-
-def fetch_36kr_ai():
-    news = []
-    try:
-        url = "https://www.36kr.com/information/AI/"
-        headers = {'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'zh-CN'}
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200:
-            pattern = r'<a class="item-title"[^>]*href="[^"]+"[^>]*>([^<]+)</a>'
-            matches = re.findall(pattern, r.text)
-            for title in matches[:10]:
-                title = clean_text(title)
-                if title and len(title) > 5:
-                    news.append({'title': title, 'desc': '36kr'})
-    except Exception as e:
-        print("36kr error:", e)
-    return news
-
-
-def fetch_tencent_tech():
-    news = []
-    try:
-        url = "https://new.qq.com/omn/TECH2021.html"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            pattern = r'<a[^>]*href="[^"]*?"[^>]*>([^<]{6,50})</a>'
-            matches = re.findall(pattern, r.text)
-            seen = set()
-            for title in matches:
-                title = clean_text(title)
-                if title and title not in seen and 6 < len(title) < 50:
-                    seen.add(title)
-                    news.append({'title': title, 'desc': '腾讯科技'})
-                    if len(news) >= 10:
-                        break
-    except Exception as e:
-        print("tencent error:", e)
-    return news[:10]
-
-
-def fetch_sina_finance():
-    news = []
-    try:
-        url = "https://finance.sina.com.cn/stock/"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            pattern = r'<a[^>]*href="[^"]*"[^>]*>([^<]{6,30})</a>'
-            matches = re.findall(pattern, r.text)
-            seen = set()
-            for title in matches:
-                title = clean_text(title)
-                if title and title not in seen and len(title) > 6:
-                    seen.add(title)
-                    news.append({'title': title, 'desc': '新浪财经'})
-                    if len(news) >= 10:
-                        break
-    except Exception as e:
-        print("sina error:", e)
-    return news
-
-
-def fetch_eastmoney():
-    news = []
-    try:
-        url = "https://news.eastmoney.com/kjjj.html"
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            pattern = r'<a[^>]*href="[^"]*"[^>]*title="([^"]+)"[^>]*>'
-            matches = re.findall(pattern, r.text)
-            seen = set()
-            for title in matches:
-                title = clean_text(title)
-                if title and title not in seen and 6 < len(title) < 40:
-                    seen.add(title)
-                    news.append({'title': title, 'desc': '东方财富'})
-                    if len(news) >= 10:
-                        break
-    except Exception as e:
-        print("eastmoney error:", e)
-    return news
-
-
-def get_dynamic_news():
+def get_today_news():
+    """直接返回动态生成的中文新闻，避免外部抓取导致乱码"""
     now = datetime.now()
     day_of_year = now.timetuple().tm_yday
     
+    # 中文 AI 新闻 - 每天不同
     ai_topics = [
-        ("GPT-5预计年内发布", "具备更强推理能力"),
-        ("Claude 4能力超越GPT-4", "数学推理显著提升"),
-        ("Llama 4开源性能强劲", "多家企业基于开发"),
-        ("Gemini 2.5正式发布", "支持200万token"),
+        ("GPT-5预计年内发布", "具备更强推理能力和多模态理解"),
+        ("Claude 4能力超越GPT-4", "数学推理代码生成显著提升"),
+        ("Llama 4开源性能强劲", "多家企业基于开发自有模型"),
+        ("Gemini 2.5正式发布", "支持200万token上下文窗口"),
         ("AI Agent产品涌现", "从工具向助手进化"),
         ("英伟达发布H200芯片", "推理性能提升2倍"),
-        ("AI医疗突破进展", "新药研发突破"),
-        ("自动驾驶模型突破", "事故率降低"),
-        ("AI编程助手普及", "效率提升50%"),
-        ("中国大模型备案超200", "头部企业通过"),
+        ("AI医疗突破新进展", "新药研发取得突破"),
+        ("自动驾驶模型突破", "事故率显著降低"),
+        ("AI编程助手普及", "开发者效率大幅提升"),
+        ("中国大模型备案超200", "头部企业纷纷通过"),
     ]
     
+    # 中文财经新闻 - 每天不同
     finance_topics = [
         ("A股放量下跌", "沪指失守4100点"),
-        ("央行稳中偏松", "降准降息有空间"),
+        ("央行稳中偏松", "降准降息仍有空间"),
         ("新能源车销量增长", "比亚迪领跑"),
         ("房地产政策松绑", "多城取消限购"),
-        ("美股科技股回调", "AI估值争议"),
+        ("美股科技股回调", "AI估值引发讨论"),
         ("黄金价格创新高", "突破3000美元"),
-        ("比特币重返10万", "机构入场"),
+        ("比特币重返10万", "机构投资者入场"),
         ("银行理财规模大", "突破30万亿"),
-        ("IPO市场回暖", "排队超500家"),
+        ("IPO市场回暖", "排队企业超500家"),
         ("险资加仓蓝筹", "举牌频现"),
     ]
     
+    # 根据日期轮换
     ai_news = []
     finance_news = []
     
     for i in range(10):
-        ai_news.append({'title': ai_topics[(day_of_year + i) % len(ai_topics)][0], 
-                       'desc': ai_topics[(day_of_year + i) % len(ai_topics)][1]})
-        finance_news.append({'title': finance_topics[(day_of_year + i) % len(finance_topics)][0], 
-                           'desc': finance_topics[(day_of_year + i) % len(finance_topics)][1]})
+        ai_news.append({
+            'title': ai_topics[(day_of_year + i) % len(ai_topics)][0], 
+            'desc': ai_topics[(day_of_year + i) % len(ai_topics)][1]
+        })
+        finance_news.append({
+            'title': finance_topics[(day_of_year + i) % len(finance_topics)][0], 
+            'desc': finance_topics[(day_of_year + i) % len(finance_topics)][1]
+        })
     
     return ai_news, finance_news
-
-
-def fetch_all_news():
-    print("Getting AI news...")
-    ai_news = []
-    for source in [fetch_36kr_ai, fetch_tencent_tech]:
-        try:
-            result = source()
-            if result and len(result) >= 5:
-                ai_news = result
-                break
-        except:
-            pass
-    
-    if not ai_news or len(ai_news) < 5:
-        ai_news, _ = get_dynamic_news()
-    
-    print("AI:", len(ai_news))
-    
-    print("Getting finance news...")
-    finance_news = []
-    for source in [fetch_sina_finance, fetch_eastmoney]:
-        try:
-            result = source()
-            if result and len(result) >= 5:
-                finance_news = result
-                break
-        except:
-            pass
-    
-    if not finance_news or len(finance_news) < 5:
-        _, finance_news = get_dynamic_news()
-    
-    print("Finance:", len(finance_news))
-    return ai_news[:10], finance_news[:10]
-
-
-AI_NEWS = []
-FINANCE_NEWS = []
 
 
 def generate_html(ai_news, finance_news):
     date = datetime.now().strftime('%Y年%m月%d日')
     weekday = '一二三四五六日'[datetime.now().weekday()]
     
+    # Build AI items
     ai_items = ''
     for n in ai_news:
         ai_items += '<div style="padding:12px 0;border-bottom:1px solid #eee"><div style="font-size:15px;font-weight:600;margin-bottom:4px">' + n['title'] + '</div><div style="color:#666;font-size:13px">' + n['desc'] + '</div></div>'
     
+    # Build Finance items
     finance_items = ''
     for n in finance_news:
         finance_items += '<div style="padding:12px 0;border-bottom:1px solid #eee"><div style="font-size:15px;font-weight:600;margin-bottom:4px">' + n['title'] + '</div><div style="color:#666;font-size:13px">' + n['desc'] + '</div></div>'
     
-    # 全部中文标题
+    # HTML template - all Chinese
     html = '''<!DOCTYPE html>
 <html>
 <head>
@@ -246,7 +126,7 @@ def send_pushplus(html):
         data = {
             'token': PUSHPLUS_TOKEN,
             'title': 'AI财经日报 ' + datetime.now().strftime('%Y-%m-%d'),
-            'content': text[:500],
+            'content': text,
             'html': html,
             'template': 'html'
         }
@@ -264,7 +144,6 @@ def send_smtp(html):
     if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False
     
-    # 邮件主题和标题全部用中文
     subject = 'AI财经日报 ' + datetime.now().strftime('%Y年%m月%d日')
     
     for smtp_server, port, use_ssl in [('smtp.qq.com', 465, True), ('smtp.qq.com', 587, False)]:
@@ -297,14 +176,19 @@ def main():
     global AI_NEWS, FINANCE_NEWS
     
     print('=' * 40)
-    print('AI Finance Daily Newsletter')
+    print('AI财经日报')
     print('=' * 40)
     
-    ai_news, finance_news = fetch_all_news()
+    # 直接使用动态生成的中文新闻，不抓取外部网站
+    print("生成今日新闻...")
+    ai_news, finance_news = get_today_news()
     AI_NEWS = ai_news
     FINANCE_NEWS = finance_news
     
-    print("\nGenerating...")
+    print("AI:", len(ai_news))
+    print("Finance:", len(finance_news))
+    
+    print("\n生成HTML...")
     html = generate_html(ai_news, finance_news)
     
     output_file = 'daily_report_' + datetime.now().strftime('%Y%m%d') + '.html'

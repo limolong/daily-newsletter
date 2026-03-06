@@ -9,6 +9,7 @@ import os
 import smtplib
 import json
 import re
+import html
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -39,6 +40,13 @@ def clean_html(text):
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
+
+
+def escape_html(text):
+    """转义 HTML 特殊字符"""
+    if not text:
+        return ''
+    return html.escape(text)
 
 
 def fetch_36kr_ai():
@@ -190,7 +198,6 @@ def get_dynamic_news():
     now = datetime.now()
     date_str = now.strftime('%Y年%m月%d日')
     
-    # 每天不同的主题索引
     day_of_year = now.timetuple().tm_yday
     
     # 中文 AI 新闻主题
@@ -225,7 +232,6 @@ def get_dynamic_news():
         ("A股市场震荡整理", "关注政策面和资金面变化"),
     ]
     
-    # 每天轮换不同的主题
     ai_news = []
     finance_news = []
     
@@ -249,7 +255,6 @@ def fetch_all_news():
     """获取所有新闻"""
     print("正在获取 AI 热点新闻...")
     
-    # AI 新闻来源
     news_sources = [
         fetch_36kr_ai,
         fetch_tencent_tech,
@@ -266,7 +271,6 @@ def fetch_all_news():
         except Exception as e:
             print(f"  {source.__name__} 失败: {e}")
     
-    # 如果所有来源都失败，使用动态中文新闻
     if not ai_news or len(ai_news) < 5:
         print("  使用动态生成的 AI 新闻...")
         ai_news, _ = get_dynamic_news()
@@ -276,7 +280,6 @@ def fetch_all_news():
     
     print("正在获取财经热点新闻...")
     
-    # 财经新闻来源
     finance_sources = [
         fetch_sina_finance,
         fetch_eastmoney,
@@ -294,7 +297,6 @@ def fetch_all_news():
         except Exception as e:
             print(f"  {source.__name__} 失败: {e}")
     
-    # 如果所有来源都失败，使用动态中文新闻
     if not finance_news or len(finance_news) < 5:
         print("  使用动态生成的财经新闻...")
         _, finance_news = get_dynamic_news()
@@ -315,35 +317,43 @@ def generate_html(ai_news, finance_news):
     weekday = '一二三四五六日'[datetime.now().weekday()]
     update_time = datetime.now().strftime('%H:%M')
     
+    # 转义 HTML 特殊字符
     ai_items = ''.join([
-        f'<div class="news-item"><div class="title">📰 {n["title"]}</div><div class="desc">{n["desc"]}</div></div>' 
+        f'<div class="news-item"><div class="title">{escape_html(n["title"])}</div><div class="desc">{escape_html(n["desc"])}</div></div>' 
         for n in ai_news
     ])
     finance_items = ''.join([
-        f'<div class="news-item"><div class="title">📰 {n["title"]}</div><div class="desc">{n["desc"]}</div></div>' 
+        f'<div class="news-item"><div class="title">{escape_html(n["title"])}</div><div class="desc">{escape_html(n["desc"])}</div></div>' 
         for n in finance_news
     ])
     
-    return f'''<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>AI & 财经日报</title></head>
-<body style="font-family:-apple-system,sans-serif;margin:0;background:#f5f5f5">
+    html = '''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AI and Finance Daily</title>
+</head>
+<body style="font-family:Microsoft YaHei,SimHei,sans-serif;margin:0;background:#f5f5f5">
 <div style="max-width:800px;margin:0 auto;background:#fff">
 <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:30px 20px;text-align:center">
-<h1>🤖 AI & 📈 财经每日日报</h1>
-<div>{date} · 星期{weekday} · 更新时间 {update_time}</div>
+<h1>AI and Finance Daily News</h1>
+<div>''' + date + ''' 星期''' + weekday + ''' Update: ''' + update_time + '''</div>
 </div>
 <div style="padding:25px 20px">
-<h2 style="color:#0066cc">🤖 AI圈热点</h2>
-{ai_items}
+<h2 style="color:#0066cc">AI News</h2>
+''' + ai_items + '''
 </div>
 <div style="padding:25px 20px;border-top:1px solid #eee">
-<h2 style="color:#e4393c">📈 财经圈热点</h2>
-{finance_items}
+<h2 style="color:#e4393c">Finance News</h2>
+''' + finance_items + '''
 </div>
 <div style="background:#1a1a2e;color:#fff;padding:20px;text-align:center;font-size:13px">
-由 AI 自动生成 · 每天 8:30 北京时间推送
+Auto generated daily at 8:30 Beijing Time
 </div>
-</div></body></html>'''
+</div>
+</body>
+</html>'''
+    return html
 
 
 def send_pushplus(html):
@@ -354,7 +364,7 @@ def send_pushplus(html):
         text = ''.join([n['title'] + ' ' for n in AI_NEWS[:5]]) + ' | ' + ''.join([n['title'] + ' ' for n in FINANCE_NEWS[:5]])
         data = {
             'token': PUSHPLUS_TOKEN,
-            'title': '🤖 AI & 📈 财经日报 ' + datetime.now().strftime('%Y年%m月%d日'),
+            'title': 'AI and Finance Daily ' + datetime.now().strftime('%Y-%m-%d'),
             'content': text[:500],
             'html': html,
             'template': 'html'
@@ -362,13 +372,13 @@ def send_pushplus(html):
         r = requests.post('http://www.pushplus.plus/send', data=data, timeout=30)
         result = r.json()
         if result.get('code') == 200:
-            print('✅ PushPlus发送成功!')
+            print('PushPlus OK')
             return True
         else:
-            print(f'❌ PushPlus失败: {result}')
+            print(f'PushPlus fail: {result}')
             return False
     except Exception as e:
-        print(f'❌ PushPlus异常: {e}')
+        print(f'PushPlus error: {e}')
         return False
 
 
@@ -384,9 +394,9 @@ def send_smtp(html):
     
     for smtp_server, port, use_ssl in configs:
         try:
-            print(f'尝试 {smtp_server}:{port}...')
+            print(f'Try {smtp_server}:{port}...')
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = Header('🤖 AI & 📈 财经日报 ' + datetime.now().strftime('%Y年%m月%d日'), 'utf-8')
+            msg['Subject'] = 'AI and Finance Daily ' + datetime.now().strftime('%Y-%m-%d')
             msg['From'] = EMAIL_SENDER
             msg['To'] = ', '.join(EMAIL_RECEIVERS) if EMAIL_RECEIVERS else EMAIL_SENDER
             msg.attach(MIMEText(html, 'html', 'utf-8'))
@@ -400,10 +410,10 @@ def send_smtp(html):
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
             server.quit()
-            print(f'✅ SMTP发送成功! ({smtp_server}:{port})')
+            print(f'SMTP OK ({smtp_server}:{port})')
             return True
         except Exception as e:
-            print(f'  ❌ {smtp_server}:{port} 失败: {str(e)[:50]}')
+            print(f'  Fail {smtp_server}:{port}: {str(e)[:50]}')
             continue
     
     return False
@@ -413,20 +423,20 @@ def main():
     global AI_NEWS, FINANCE_NEWS
     
     print('=' * 50)
-    print('AI & 财经每日日报')
+    print('AI and Finance Daily Newsletter')
     print('=' * 50)
     
     ai_news, finance_news = fetch_all_news()
     AI_NEWS = ai_news
     FINANCE_NEWS = finance_news
     
-    print("\n正在生成日报...")
+    print("\nGenerating HTML...")
     html = generate_html(ai_news, finance_news)
     
     output_file = 'daily_report_' + datetime.now().strftime('%Y%m%d') + '.html'
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)
-    print(f'日报已保存: {output_file}')
+    print(f'Report saved: {output_file}')
     
     success = False
     
@@ -437,11 +447,11 @@ def main():
         success = send_pushplus(html)
     
     if not success:
-        print('❌ 所有发送方式都失败!')
+        print('All send methods failed!')
         import sys
         sys.exit(1)
     
-    print("\n✅ 任务完成!")
+    print("\nDone!")
 
 
 if __name__ == '__main__':

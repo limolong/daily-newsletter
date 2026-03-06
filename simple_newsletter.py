@@ -25,7 +25,7 @@ print("EMAIL_RECEIVERS:", EMAIL_RECEIVERS)
 print("==============")
 
 
-def clean_html(text):
+def clean_text(text):
     if not text:
         return ''
     text = re.sub(r'<[^>]+>', '', text)
@@ -43,7 +43,7 @@ def fetch_36kr_ai():
             pattern = r'<a class="item-title"[^>]*href="[^"]+"[^>]*>([^<]+)</a>'
             matches = re.findall(pattern, r.text)
             for title in matches[:10]:
-                title = clean_html(title)
+                title = clean_text(title)
                 if title and len(title) > 5:
                     news.append({'title': title, 'desc': '36kr'})
     except Exception as e:
@@ -61,10 +61,10 @@ def fetch_tencent_tech():
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
-                title = clean_html(title)
+                title = clean_text(title)
                 if title and title not in seen and 6 < len(title) < 50:
                     seen.add(title)
-                    news.append({'title': title, 'desc': '腾讯'})
+                    news.append({'title': title, 'desc': '腾讯科技'})
                     if len(news) >= 10:
                         break
     except Exception as e:
@@ -82,10 +82,10 @@ def fetch_sina_finance():
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
-                title = clean_html(title)
+                title = clean_text(title)
                 if title and title not in seen and len(title) > 6:
                     seen.add(title)
-                    news.append({'title': title, 'desc': '新浪'})
+                    news.append({'title': title, 'desc': '新浪财经'})
                     if len(news) >= 10:
                         break
     except Exception as e:
@@ -103,7 +103,7 @@ def fetch_eastmoney():
             matches = re.findall(pattern, r.text)
             seen = set()
             for title in matches:
-                title = clean_html(title)
+                title = clean_text(title)
                 if title and title not in seen and 6 < len(title) < 40:
                     seen.add(title)
                     news.append({'title': title, 'desc': '东方财富'})
@@ -233,7 +233,7 @@ Generated daily at 8:30
 </body>
 </html>'''
     
-    return html.encode('utf-8').decode('utf-8')
+    return html
 
 
 def send_pushplus(html):
@@ -243,7 +243,7 @@ def send_pushplus(html):
         text = ' '.join([n['title'] for n in AI_NEWS[:3]]) + ' | ' + ' '.join([n['title'] for n in FINANCE_NEWS[:3]])
         data = {
             'token': PUSHPLUS_TOKEN,
-            'title': 'AI Finance Daily ' + datetime.now().strftime('%Y-%m-%d'),
+            'title': 'AI财经日报 ' + datetime.now().strftime('%Y-%m-%d'),
             'content': text[:500],
             'html': html,
             'template': 'html'
@@ -262,14 +262,18 @@ def send_smtp(html):
     if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False
     
+    # Subject in Chinese
+    subject = 'AI财经日报 ' + datetime.now().strftime('%Y年%m月%d日')
+    
     for smtp_server, port, use_ssl in [('smtp.qq.com', 465, True), ('smtp.qq.com', 587, False)]:
         try:
             print('Try', smtp_server, port)
-            subject = 'AI Finance Daily ' + datetime.now().strftime('%Y-%m-%d')
             msg = MIMEMultipart('alternative')
+            # Use utf-8 encoding for subject
             msg['Subject'] = Header(subject, 'utf-8')
             msg['From'] = EMAIL_SENDER
             msg['To'] = ', '.join(EMAIL_RECEIVERS) if EMAIL_RECEIVERS else EMAIL_SENDER
+            # HTML with utf-8 encoding
             msg.attach(MIMEText(html, 'html', 'utf-8'))
             
             if use_ssl:
